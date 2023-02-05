@@ -1,0 +1,7 @@
+package:
+  name: cron
+  method:
+    name: New
+    args: name string, pattern string
+    content: |
+      fmt.Println("test")
