@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/go-zoox/chalk v1.0.2
 	github.com/go-zoox/cli v1.0.10
+	github.com/go-zoox/core-utils v1.2.2
 	github.com/go-zoox/dotenv v1.2.3
 	github.com/go-zoox/fs v1.3.5
 	github.com/go-zoox/logger v1.4.0
@@ -14,7 +15,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-zoox/core-utils v1.0.4 // indirect
 	github.com/go-zoox/datetime v1.1.0 // indirect
 	github.com/go-zoox/encoding v1.0.5 // indirect
 	github.com/go-zoox/tag v1.0.6 // indirect

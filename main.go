@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-zoox/chalk"
 	"github.com/go-zoox/cli"
+	"github.com/go-zoox/core-utils/regexp"
 	_ "github.com/go-zoox/dotenv"
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/fs/type/yaml"
@@ -35,13 +36,27 @@ func main() {
 				Name:  "data",
 				Usage: "template data file path, auto use environment, .env, support .yml type",
 			},
+			&cli.StringFlag{
+				Name:     "exclude",
+				Usage:    "exclude file or directory, support regexp pattern",
+				Required: true,
+			},
 		},
 	})
 
-	app.Command(func(ctx *cli.Context) error {
+	app.Command(func(ctx *cli.Context) (err error) {
 		source := ctx.String("source")
 		target := ctx.String("target")
 		templateDataFilepath := ctx.String("data")
+		exclude := ctx.String("exclude")
+
+		var excludeRe regexp.RegExp
+		if exclude != "" {
+			excludeRe, err = regexp.New(exclude)
+			if err != nil {
+				return fmt.Errorf("failed to compile exclude regexp pattern(%s): %v", exclude, err)
+			}
+		}
 
 		templateData := map[string]any{}
 		if fs.IsExist(templateDataFilepath) {
@@ -78,9 +93,20 @@ func main() {
 		}
 
 		return fs.WalkDir(source, func(sourcePath string, d iofs.DirEntry, err error) error {
+			relativePath := strings.ReplaceAll(sourcePath, source, "")
+			if len(relativePath) >= 1 && relativePath[0] == '/' {
+				relativePath = relativePath[1:]
+			}
+
+			if excludeRe.Match(relativePath) {
+				logger.Infof("%s: %s", chalk.Warn("ignore"), relativePath)
+				return nil
+			}
+
 			targetPath := strings.ReplaceAll(sourcePath, source, target)
+
 			if d.IsDir() {
-				logger.Infof("create %s: %s", chalk.Green("dir"), targetPath)
+				logger.Infof("create %s: %s", chalk.Green("dir"), relativePath)
 				fsInfo, _ := d.Info()
 				if err := fs.CreateDir(targetPath, fsInfo.Mode()); err != nil {
 					return fmt.Errorf("failed to create directory(%s): %v", targetPath, err)
@@ -88,12 +114,12 @@ func main() {
 			} else {
 				// file
 				if fs.IsFile(sourcePath) {
-					logger.Infof("create %s: %s", chalk.Blue("file"), targetPath)
+					logger.Infof("create %s: %s", chalk.Blue("file"), relativePath)
 					if err := generateFromTemplate(sourcePath, targetPath, templateData); err != nil {
 						return fmt.Errorf("failed to create file(%s): %v", targetPath, err)
 					}
 				} else if fs.IsSymbolicLink(sourcePath) {
-					logger.Infof("create %s: %s", chalk.Gray("symbol link"), targetPath)
+					logger.Infof("create %s: %s", chalk.Gray("symbol link"), relativePath)
 					if err := generateFromTemplate(sourcePath, targetPath, templateData); err != nil {
 						return fmt.Errorf("failed to create symbol link(%s): %v", targetPath, err)
 					}
@@ -127,7 +153,15 @@ func generateFromTemplate(srcPath, dstPath string, data interface{}) error {
 		return err
 	}
 
-	tmpl := template.New("page")
+	funcMap := template.FuncMap{
+		"ToUpper":      strings.ToUpper,
+		"ToLower":      strings.ToLower,
+		"ToTitle":      strings.ToTitle,
+		"ToCapitalize": strings.ToTitle,
+	}
+
+	tmpl := template.New("page").Funcs(funcMap)
+
 	if tmpl, err = tmpl.Parse(sourceText); err != nil {
 		return fmt.Errorf("failed to parse source file template: %v", err)
 	}
